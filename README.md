@@ -184,10 +184,7 @@ It covers:
 
 Possible future additions include:
 
-- Dropout
 - Positional embeddings
-- GPU backend
-- Mixed-precision training
 - Additional optimizers
 - Model saving and loading
 - More Transformer architectures
