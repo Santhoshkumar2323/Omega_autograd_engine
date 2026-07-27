@@ -1,97 +1,194 @@
 # omega-autograd-engine
 
-A from-scratch reverse-mode autograd engine (numpy-backed, no PyTorch/JAX
-dependency for the engine itself) built up to a working, trainable
-transformer — Tensor + backprop → NN layers → optimizers → causal
-multi-head attention → a small character-level language model.
+A NumPy-based deep learning framework built completely from scratch.
 
-Everything here is **verified**, not just written: every op has a
-gradient-check test comparing analytic backward passes against numerical
-(finite-difference) gradients, and both training scripts (`train_mnist.py`,
-`train_transformer.py`) run end-to-end and actually learn.
+This project starts with a reverse-mode automatic differentiation engine and builds up to a working Transformer. It includes neural network layers, optimizers, attention mechanisms, Flash Attention, gradient checkpointing, and complete training examples.
 
-## Structure
+The goal is to understand how modern deep learning frameworks work internally by implementing the core components instead of relying on PyTorch or TensorFlow.
 
-```
-autograd/
-    tensor.py           # Tensor: data, grad, computational graph, core ops
-    ops.py               # relu, softmax, sigmoid, tanh (+ add/matmul aliases)
-    attention_ops.py      # masked_softmax, scaled_dot_product_attention,
-                           #   layer_norm, gelu — all with analytic backward
-nn.py                    # Linear, Embedding, LayerNorm, MultiHeadAttention,
-                          #   FeedForward, TransformerBlock (pre-LN)
-optimizers.py             # Optimizer, SGD(+momentum), Adam, AdamW
-data.py                   # CharTokenizer, LM batching, digit-image loading
-profiling.py               # forward/backward timing, O(n^2) attention
-                            #   memory-scaling measurement
-tests/
-    test_engine.py         # gradcheck: add, mul, matmul, relu, softmax,
-                            #   sum, mean, reshape, transpose, pow, div
-    test_attention.py      # gradcheck: masked_softmax, attention, layer_norm,
-                            #   gelu, + causal-mask leakage sanity check
-train_mnist.py             # MLP sanity check (digit classification)
-train_transformer.py       # character-level transformer LM
-```
+---
 
-## Running it
+## Features
+
+### Core Engine
+
+- Reverse-mode automatic differentiation
+- Dynamic computational graph
+- Tensor class with gradient tracking
+- Broadcasting support
+- Matrix operations
+- Automatic backpropagation
+
+### Neural Networks
+
+- Linear layer
+- Embedding layer
+- Layer Normalization
+- ReLU
+- GELU
+- Softmax
+- Sigmoid
+- Tanh
+
+### Transformer
+
+- Multi-Head Self Attention
+- Causal masking
+- Feed Forward Network
+- Pre-LayerNorm Transformer Block
+- Character-level Language Model
+
+### Optimizers
+
+- SGD
+- SGD with Momentum
+- Adam
+- AdamW
+
+### Memory Optimizations
+
+- Flash Attention
+- Gradient Checkpointing
+
+### Testing
+
+- Numerical gradient checking
+- PyTorch comparison scripts
+- Unit tests for tensor operations
+- Unit tests for attention operations
+- Flash Attention correctness tests
+- Gradient checkpointing tests
+
+---
+
+## Key Components
+
+### Autograd Engine
+
+Implements a Tensor class with reverse-mode automatic differentiation, dynamic computational graphs, broadcasting, and automatic backpropagation.
+
+### Neural Network Layers
+
+Provides the building blocks needed to construct neural networks, including Linear, Embedding, LayerNorm, activation functions, and loss operations.
+
+### Transformer
+
+Implements causal Multi-Head Self Attention, Feed Forward Networks, Pre-LayerNorm Transformer blocks, and a character-level language model.
+
+### Optimizers
+
+Includes SGD, SGD with Momentum, Adam, and AdamW.
+
+### Memory Optimizations
+
+Implements Flash Attention and Gradient Checkpointing to demonstrate techniques used for reducing memory usage during training.
+
+### Testing
+
+Every custom backward implementation is verified using numerical finite-difference gradient checking. Additional comparison scripts are included for validating results against PyTorch.
+
+---
+
+## Running the Project
+
+Install the required packages:
 
 ```bash
-pip install numpy scipy scikit-learn --break-system-packages
-
-python3 tests/test_engine.py        # core op gradchecks
-python3 tests/test_attention.py     # attention/layernorm/gelu gradchecks
-python3 profiling.py                # attention memory scaling demo
-python3 train_mnist.py              # MLP sanity check
-python3 train_transformer.py        # transformer LM training
+pip install numpy scipy scikit-learn
 ```
 
-## What's actually verified vs. approximated
+Run the gradient checks:
 
-- **Gradients**: every custom backward pass (including the hand-derived
-  LayerNorm backward, which is the easiest one to get subtly wrong) is
-  checked against numerical differentiation, not just "looks right."
-  This sandbox doesn't have PyTorch installed, so the tests use
-  finite-difference gradcheck directly rather than comparing to
-  `torch.autograd` — which is what `torch.autograd.gradcheck` does
-  internally anyway. If you have PyTorch locally, you can additionally
-  mirror any op in torch and diff against `.grad` for extra confidence.
-- **"MNIST"**: this sandbox has no internet access to download the real
-  28x28 MNIST files, so `train_mnist.py` uses scikit-learn's built-in
-  `load_digits` dataset (1797 8x8 grayscale digit images) as a stand-in.
-  Structurally the same problem, but **not** real MNIST. Swap in
-  `torchvision.datasets.MNIST` (or the raw files) if you have internet —
-  the training loop itself doesn't need to change.
-- **Transformer training corpus**: no internet access to pull an external
-  text corpus either, so `train_transformer.py` trains on a small
-  built-in sample paragraph (repeated to give enough data to sample
-  chunks from). It's enough to prove the full attention + LayerNorm +
-  GELU + residual stack trains and starts reproducing structure from the
-  text — not a meaningful language model. Swap `load_corpus()` to read
-  your own `.txt` file for a real run.
+```bash
+python tests/test_engine.py
+python tests/test_attention.py
+python tests/test_flash_attention.py
+python tests/test_checkpoint.py
+```
 
-## Design notes worth knowing if you extend this
+Train the MLP example:
 
-- **Pre-LN transformer blocks** (`x = x + Attn(LN(x))`, not
-  `LN(x + Attn(x))`) — pre-LN trains more stably without a learning-rate
-  warmup, which matters more here since there's no fused/optimized
-  attention kernel to fall back on.
-- **AdamW uses decoupled weight decay** (applied directly to the
-  parameters, not folded into the gradient before the moment estimates)
-  — that's the actual difference from `Adam(weight_decay=...)`, not just
-  a naming difference.
-- **`masked_softmax` uses an additive mask** (0 = allowed, -1e9 =
-  disallowed), matching how causal/padding masks are typically built in
-  real transformer implementations, rather than a boolean mask.
-- **Attention memory is O(seq_len²)** — `profiling.py` measures this
-  directly (doubling seq_len ≈ quadruples the score-matrix size), which
-  is the concrete motivation for techniques like FlashAttention or
-  sliding-window attention on longer sequences.
+```bash
+python train_mnist.py
+```
 
-## Known limitations
+Train the Transformer language model:
 
-- Pure numpy — no GPU support, no fused kernels. This is an engine for
-  *understanding* autograd/transformers, not for training anything at
-  real scale.
-- No dropout implemented (not needed at this corpus size, but you'd want
-  it before scaling up to avoid overfitting).
-- Single-machine-only; no distributed/parallel training utilities.
+```bash
+python train_transformer.py
+```
+
+Run the profiling script:
+
+```bash
+python profiling.py
+```
+
+---
+
+## Verification
+
+This project focuses on correctness as much as implementation.
+
+Custom backward passes are verified using numerical finite-difference gradient checking. The project also includes comparison scripts to validate outputs and gradients against PyTorch where applicable.
+
+The verification covers:
+
+- Core tensor operations
+- Matrix multiplication
+- Broadcasting
+- Layer Normalization
+- GELU
+- Multi-Head Attention
+- Flash Attention
+- Gradient Checkpointing
+
+---
+
+## Current Limitations
+
+This project is intended for learning and experimentation rather than large-scale model training.
+
+Current limitations include:
+
+- CPU-only implementation using NumPy
+- No GPU acceleration
+- No distributed training
+- No mixed-precision training
+- No dropout
+- Small character-level language model
+- Uses the scikit-learn Digits dataset instead of the original MNIST dataset
+
+---
+
+## Why This Project?
+
+The objective of this project is to understand how modern deep learning frameworks are built by implementing the core components from scratch.
+
+It covers:
+
+- Automatic differentiation
+- Computational graphs
+- Neural network layers
+- Optimizer implementations
+- Transformer architecture
+- Attention mechanisms
+- Flash Attention
+- Gradient Checkpointing
+- Numerical gradient verification
+- End-to-end model training
+
+---
+
+## Future Improvements
+
+Possible future additions include:
+
+- Dropout
+- Positional embeddings
+- GPU backend
+- Mixed-precision training
+- Additional optimizers
+- Model saving and loading
+- More Transformer architectures
+- Larger datasets
