@@ -8,6 +8,10 @@ The goal is to understand how modern deep learning frameworks work internally by
 
 ---
 
+## Architecture
+![Architecture Diagram](./architecture/how_it_works.svg)
+
+
 ## Features
 
 ### Core Engine
