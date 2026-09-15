@@ -8,6 +8,48 @@ The goal is to understand how modern deep learning frameworks work internally by
 
 ---
 
+## Output
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="output/1.png" width="380"><br>
+      <b>Core Engine Tests</b>
+    </td>
+    <td align="center">
+      <img src="output/2.png" width="380"><br>
+      <b>Attention Mechanism Tests</b>
+    </td>
+  </tr>
+ 
+  <tr><td colspan="2" style="padding: 25px 0;"></td></tr>
+
+  <tr>
+    <td align="center">
+      <img src="output/3.png" width="380"><br>
+      <b>FlashAttention Benchmarks</b>
+    </td>
+    <td align="center">
+      <img src="output/4.png" width="380"><br>
+      <b>MNIST Model Training</b>
+    </td>
+  </tr>
+
+  <tr><td colspan="2" style="padding: 25px 0;"></td></tr>
+
+  <tr>
+    <td align="center">
+      <img src="output/5.png" width="380"><br>
+      <b>Transformer Training & Text Gen</b>
+    </td>
+    <td align="center">
+      <img src="output/6.png" width="380"><br>
+      <b>PyTorch Verification Check</b>
+    </td>
+  </tr>
+</table>
+
+
 ## Architecture
 ![Architecture Diagram](./architecture/how_it_works.svg)
 
